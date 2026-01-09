@@ -61,6 +61,7 @@ export type KnownProvider =
 	| "mistral"
 	| "minimax"
 	| "minimax-cn"
+	| "nvidia"
 	| "opencode";
 export type Provider = KnownProvider | string;
 

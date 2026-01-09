@@ -30,6 +30,7 @@ export const defaultModelPerProvider: Record<KnownProvider, string> = {
 	minimax: "MiniMax-M2.1",
 	"minimax-cn": "MiniMax-M2.1",
 	opencode: "claude-opus-4-5",
+	nvidia: "minimaxai/minimax-m2.1",
 };
 
 export interface ScopedModel {

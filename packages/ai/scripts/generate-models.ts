@@ -803,6 +803,25 @@ async function generateModels() {
 		});
 	}
 
+	// NVIDIA models (MiniMax via NVIDIA API catalog)
+	const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
+	const nvidiaModels: Model<"openai-completions">[] = [
+		{
+			id: "minimaxai/minimax-m2.1",
+			name: "MiniMax-M2.1",
+			api: "openai-completions",
+			provider: "nvidia",
+			baseUrl: NVIDIA_BASE_URL,
+			reasoning: true,
+			input: ["text"],
+			// Costs are currently unknown or free via NVIDIA API catalog
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128000,
+			maxTokens: 16384,
+		},
+	];
+	allModels.push(...nvidiaModels);
+
 	// Google Cloud Code Assist models (Gemini CLI)
 	// Uses production endpoint, standard Gemini models only
 	const CLOUD_CODE_ASSIST_ENDPOINT = "https://cloudcode-pa.googleapis.com";

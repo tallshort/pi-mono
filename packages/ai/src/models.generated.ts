@@ -3236,6 +3236,25 @@ export const MODELS = {
 			maxTokens: 128000,
 		} satisfies Model<"openai-completions">,
 	},
+	"nvidia": {
+		"minimaxai/minimax-m2.1": {
+			id: "minimaxai/minimax-m2.1",
+			name: "MiniMax-M2.1",
+			api: "openai-completions",
+			provider: "nvidia",
+			baseUrl: "https://integrate.api.nvidia.com/v1",
+			reasoning: true,
+			input: ["text"],
+			cost: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+			},
+			contextWindow: 128000,
+			maxTokens: 16384,
+		} satisfies Model<"openai-completions">,
+	},
 	"openai": {
 		"codex-mini-latest": {
 			id: "codex-mini-latest",

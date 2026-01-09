@@ -293,6 +293,48 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (
 
 			finishCurrentBlock(currentBlock);
 
+			// Parse <thinking> or <think> tags from text blocks and convert to thinking blocks
+			// This is needed for providers like NVIDIA/MiniMax that return thinking as XML tags
+			if (output.content.length > 0) {
+				const newContent: Array<TextContent | ThinkingContent | ToolCall> = [];
+				const thinkingTagRegex = /<(think|thinking)>([\s\S]*?)(?:<\/(?:think|thinking)>|$)/g;
+
+				for (const block of output.content) {
+					if (block.type === "text" && typeof block.text === "string") {
+						const text = block.text;
+						let lastIndex = 0;
+						let match: RegExpExecArray | null = thinkingTagRegex.exec(text);
+
+						while (match !== null) {
+							// Add text before thinking block
+							const beforeText = text.slice(lastIndex, match.index);
+							if (beforeText.length > 0) {
+								newContent.push({ type: "text", text: beforeText });
+							}
+
+							// Add thinking block
+							const thinkingContent = match[2];
+							if (thinkingContent.length > 0) {
+								newContent.push({ type: "thinking", thinking: thinkingContent });
+							}
+
+							lastIndex = thinkingTagRegex.lastIndex;
+							match = thinkingTagRegex.exec(text);
+						}
+
+						// Add remaining text after last thinking block
+						const afterText = text.slice(lastIndex);
+						if (afterText.length > 0) {
+							newContent.push({ type: "text", text: afterText });
+						}
+					} else {
+						newContent.push(block);
+					}
+				}
+
+				output.content = newContent;
+			}
+
 			if (options?.signal?.aborted) {
 				throw new Error("Request was aborted");
 			}
@@ -706,6 +748,7 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAICompat
 	const isGrok = provider === "xai" || baseUrl.includes("api.x.ai");
 
 	const isMistral = provider === "mistral" || baseUrl.includes("mistral.ai");
+	const isNvidia = baseUrl.includes("nvidia.com");
 
 	return {
 		supportsStore: !isNonStandard,
@@ -715,7 +758,7 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAICompat
 		maxTokensField: useMaxTokens ? "max_tokens" : "max_completion_tokens",
 		requiresToolResultName: isMistral,
 		requiresAssistantAfterToolResult: false, // Mistral no longer requires this as of Dec 2024
-		requiresThinkingAsText: isMistral,
+		requiresThinkingAsText: isMistral || isNvidia,
 		requiresMistralToolIds: isMistral,
 		thinkingFormat: isZai ? "zai" : "openai",
 	};
