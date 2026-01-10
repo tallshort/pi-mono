@@ -366,28 +366,33 @@ export class InteractiveMode {
 			const kb = this.keybindings;
 			const hint = (action: AppAction, desc: string) => appKeyHint(kb, action, desc);
 
-			const instructions = [
-				hint("interrupt", "to interrupt"),
-				hint("clear", "to clear"),
-				rawKeyHint(`${appKey(kb, "clear")} twice`, "to exit"),
-				hint("exit", "to exit (empty)"),
-				hint("suspend", "to suspend"),
-				keyHint("deleteToLineEnd", "to delete to end"),
-				hint("cycleThinkingLevel", "to cycle thinking"),
-				rawKeyHint(`${appKey(kb, "cycleModelForward")}/${appKey(kb, "cycleModelBackward")}`, "to cycle models"),
-				hint("selectModel", "to select model"),
-				hint("expandTools", "to expand tools"),
-				hint("toggleThinking", "to toggle thinking"),
-				hint("externalEditor", "for external editor"),
-				rawKeyHint("/", "for commands"),
-				rawKeyHint("!", "to run bash"),
-				rawKeyHint("!!", "to run bash (no context)"),
-				hint("followUp", "to queue follow-up"),
-				hint("dequeue", "to edit all queued messages"),
-				hint("pasteImage", "to paste image"),
-				rawKeyHint("drop files", "to attach"),
-			].join("\n");
-			this.builtInHeader = new Text(`${logo}\n${instructions}`, 1, 0);
+		let instructions = "";
+		if (this.settingsManager.getShowStartupShortcuts()) {
+			instructions =
+				"\n" +
+				[
+					hint("interrupt", "to interrupt"),
+					hint("clear", "to clear"),
+					rawKeyHint(`${appKey(kb, "clear")} twice`, "to exit"),
+					hint("exit", "to exit (empty)"),
+					hint("suspend", "to suspend"),
+					keyHint("deleteToLineEnd", "to delete to end"),
+					hint("cycleThinkingLevel", "to cycle thinking"),
+					rawKeyHint(`${appKey(kb, "cycleModelForward")}/${appKey(kb, "cycleModelBackward")}`, "to cycle models"),
+					hint("selectModel", "to select model"),
+					hint("expandTools", "to expand tools"),
+					hint("toggleThinking", "to toggle thinking"),
+					hint("externalEditor", "for external editor"),
+					rawKeyHint("/", "for commands"),
+					rawKeyHint("!", "to run bash"),
+					rawKeyHint("!!", "to run bash (no context)"),
+					hint("followUp", "to queue follow-up"),
+					hint("dequeue", "to edit all queued messages"),
+					hint("pasteImage", "to paste image"),
+					rawKeyHint("drop files", "to attach"),
+				].join("\n");
+		}
+		this.builtInHeader = new Text(`${logo}${instructions}`, 1, 0);
 
 			// Setup UI layout
 			this.ui.addChild(new Spacer(1));
@@ -2522,6 +2527,7 @@ export class InteractiveMode {
 					collapseChangelog: this.settingsManager.getCollapseChangelog(),
 					doubleEscapeAction: this.settingsManager.getDoubleEscapeAction(),
 					editorPaddingX: this.settingsManager.getEditorPaddingX(),
+					showStartupShortcuts: this.settingsManager.getShowStartupShortcuts(),
 				},
 				{
 					onAutoCompactChange: (enabled) => {
@@ -2592,6 +2598,9 @@ export class InteractiveMode {
 					onEditorPaddingXChange: (padding) => {
 						this.settingsManager.setEditorPaddingX(padding);
 						this.defaultEditor.setPaddingX(padding);
+					},
+					onShowStartupShortcutsChange: (show) => {
+						this.settingsManager.setShowStartupShortcuts(show);
 					},
 					onCancel: () => {
 						done();

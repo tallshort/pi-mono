@@ -37,6 +37,7 @@ export interface SettingsConfig {
 	collapseChangelog: boolean;
 	doubleEscapeAction: "fork" | "tree";
 	editorPaddingX: number;
+	showStartupShortcuts: boolean;
 }
 
 export interface SettingsCallbacks {
@@ -54,6 +55,7 @@ export interface SettingsCallbacks {
 	onCollapseChangelogChange: (collapsed: boolean) => void;
 	onDoubleEscapeActionChange: (action: "fork" | "tree") => void;
 	onEditorPaddingXChange: (padding: number) => void;
+	onShowStartupShortcutsChange: (show: boolean) => void;
 	onCancel: () => void;
 }
 
@@ -166,6 +168,13 @@ export class SettingsSelectorComponent extends Container {
 				label: "Collapse changelog",
 				description: "Show condensed changelog after updates",
 				currentValue: config.collapseChangelog ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "show-startup-shortcuts",
+				label: "Show startup shortcuts",
+				description: "Show keyboard shortcuts on startup",
+				currentValue: config.showStartupShortcuts ? "true" : "false",
 				values: ["true", "false"],
 			},
 			{
@@ -314,6 +323,9 @@ export class SettingsSelectorComponent extends Container {
 						break;
 					case "collapse-changelog":
 						callbacks.onCollapseChangelogChange(newValue === "true");
+						break;
+					case "show-startup-shortcuts":
+						callbacks.onShowStartupShortcutsChange(newValue === "true");
 						break;
 					case "double-escape-action":
 						callbacks.onDoubleEscapeActionChange(newValue as "fork" | "tree");

@@ -71,6 +71,7 @@ export interface Settings {
 	doubleEscapeAction?: "fork" | "tree"; // Action for double-escape with empty editor (default: "tree")
 	thinkingBudgets?: ThinkingBudgetsSettings; // Custom token budgets for thinking levels
 	editorPaddingX?: number; // Horizontal padding for input editor (default: 0)
+	showStartupShortcuts?: boolean; // Show keyboard shortcuts on startup (default: true)
 }
 
 /** Deep merge settings: project/overrides take precedence, nested objects merge recursively */
@@ -488,6 +489,15 @@ export class SettingsManager {
 
 	setEditorPaddingX(padding: number): void {
 		this.globalSettings.editorPaddingX = Math.max(0, Math.min(3, Math.floor(padding)));
+		this.save();
+	}
+
+	getShowStartupShortcuts(): boolean {
+		return this.settings.showStartupShortcuts ?? true;
+	}
+
+	setShowStartupShortcuts(show: boolean): void {
+		this.globalSettings.showStartupShortcuts = show;
 		this.save();
 	}
 }
