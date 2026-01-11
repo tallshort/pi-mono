@@ -80,6 +80,11 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (
 	const stream = new AssistantMessageEventStream();
 
 	(async () => {
+		const compat = getCompat(model);
+		// State for parsing <think> tags
+		let parserState: "text" | "thinking" = "text";
+		let parserBuffer = "";
+
 		const output: AssistantMessage = {
 			role: "assistant",
 			content: [],
@@ -137,6 +142,38 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (
 				}
 			};
 
+			const emitText = (text: string) => {
+				if (!currentBlock || currentBlock.type !== "text") {
+					finishCurrentBlock(currentBlock);
+					currentBlock = { type: "text", text: "" };
+					output.content.push(currentBlock);
+					stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
+				}
+				currentBlock.text += text;
+				stream.push({
+					type: "text_delta",
+					contentIndex: blockIndex(),
+					delta: text,
+					partial: output,
+				});
+			};
+
+			const emitThinking = (thinking: string) => {
+				if (!currentBlock || currentBlock.type !== "thinking") {
+					finishCurrentBlock(currentBlock);
+					currentBlock = { type: "thinking", thinking: "" };
+					output.content.push(currentBlock);
+					stream.push({ type: "thinking_start", contentIndex: blockIndex(), partial: output });
+				}
+				currentBlock.thinking += thinking;
+				stream.push({
+					type: "thinking_delta",
+					contentIndex: blockIndex(),
+					delta: thinking,
+					partial: output,
+				});
+			};
+
 			for await (const chunk of openaiStream) {
 				if (chunk.usage) {
 					const cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens || 0;
@@ -176,21 +213,66 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (
 						choice.delta.content !== undefined &&
 						choice.delta.content.length > 0
 					) {
-						if (!currentBlock || currentBlock.type !== "text") {
-							finishCurrentBlock(currentBlock);
-							currentBlock = { type: "text", text: "" };
-							output.content.push(currentBlock);
-							stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
-						}
-
-						if (currentBlock.type === "text") {
-							currentBlock.text += choice.delta.content;
-							stream.push({
-								type: "text_delta",
-								contentIndex: blockIndex(),
-								delta: choice.delta.content,
-								partial: output,
-							});
+						const content = choice.delta.content;
+						if (compat.parseThinkTags) {
+							parserBuffer += content;
+							while (true) {
+								if (parserState === "text") {
+									const startTagIndex = parserBuffer.indexOf("<think>");
+									if (startTagIndex !== -1) {
+										const text = parserBuffer.slice(0, startTagIndex);
+										if (text.length > 0) emitText(text);
+										parserState = "thinking";
+										parserBuffer = parserBuffer.slice(startTagIndex + 7);
+									} else {
+										let partialMatch = false;
+										for (let i = 1; i < 7; i++) {
+											if (parserBuffer.endsWith("<think>".slice(0, i))) {
+												const text = parserBuffer.slice(0, parserBuffer.length - i);
+												if (text.length > 0) emitText(text);
+												parserBuffer = parserBuffer.slice(parserBuffer.length - i);
+												partialMatch = true;
+												break;
+											}
+										}
+										if (!partialMatch) {
+											if (parserBuffer.length > 0) {
+												emitText(parserBuffer);
+												parserBuffer = "";
+											}
+										}
+										break;
+									}
+								} else {
+									const endTagIndex = parserBuffer.indexOf("</think>");
+									if (endTagIndex !== -1) {
+										const thinking = parserBuffer.slice(0, endTagIndex);
+										if (thinking.length > 0) emitThinking(thinking);
+										parserState = "text";
+										parserBuffer = parserBuffer.slice(endTagIndex + 8);
+									} else {
+										let partialMatch = false;
+										for (let i = 1; i < 8; i++) {
+											if (parserBuffer.endsWith("</think>".slice(0, i))) {
+												const thinking = parserBuffer.slice(0, parserBuffer.length - i);
+												if (thinking.length > 0) emitThinking(thinking);
+												parserBuffer = parserBuffer.slice(parserBuffer.length - i);
+												partialMatch = true;
+												break;
+											}
+										}
+										if (!partialMatch) {
+											if (parserBuffer.length > 0) {
+												emitThinking(parserBuffer);
+												parserBuffer = "";
+											}
+										}
+										break;
+									}
+								}
+							}
+						} else {
+							emitText(content);
 						}
 					}
 
@@ -291,49 +373,16 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions"> = (
 				}
 			}
 
-			finishCurrentBlock(currentBlock);
-
-			// Parse <thinking> or <think> tags from text blocks and convert to thinking blocks
-			// This is needed for providers like NVIDIA/MiniMax that return thinking as XML tags
-			if (output.content.length > 0) {
-				const newContent: Array<TextContent | ThinkingContent | ToolCall> = [];
-				const thinkingTagRegex = /<(think|thinking)>([\s\S]*?)(?:<\/(?:think|thinking)>|$)/g;
-
-				for (const block of output.content) {
-					if (block.type === "text" && typeof block.text === "string") {
-						const text = block.text;
-						let lastIndex = 0;
-						let match: RegExpExecArray | null = thinkingTagRegex.exec(text);
-
-						while (match !== null) {
-							// Add text before thinking block
-							const beforeText = text.slice(lastIndex, match.index);
-							if (beforeText.length > 0) {
-								newContent.push({ type: "text", text: beforeText });
-							}
-
-							// Add thinking block
-							const thinkingContent = match[2];
-							if (thinkingContent.length > 0) {
-								newContent.push({ type: "thinking", thinking: thinkingContent });
-							}
-
-							lastIndex = thinkingTagRegex.lastIndex;
-							match = thinkingTagRegex.exec(text);
-						}
-
-						// Add remaining text after last thinking block
-						const afterText = text.slice(lastIndex);
-						if (afterText.length > 0) {
-							newContent.push({ type: "text", text: afterText });
-						}
-					} else {
-						newContent.push(block);
-					}
+			// Flush any remaining buffer from the parser
+			if (compat.parseThinkTags && parserBuffer.length > 0) {
+				if (parserState === "text") {
+					emitText(parserBuffer);
+				} else {
+					emitThinking(parserBuffer);
 				}
-
-				output.content = newContent;
 			}
+
+			finishCurrentBlock(currentBlock);
 
 			if (options?.signal?.aborted) {
 				throw new Error("Request was aborted");
@@ -758,9 +807,10 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAICompat
 		maxTokensField: useMaxTokens ? "max_tokens" : "max_completion_tokens",
 		requiresToolResultName: isMistral,
 		requiresAssistantAfterToolResult: false, // Mistral no longer requires this as of Dec 2024
-		requiresThinkingAsText: isMistral || isNvidia,
+		requiresThinkingAsText: isMistral,
 		requiresMistralToolIds: isMistral,
 		thinkingFormat: isZai ? "zai" : "openai",
+		parseThinkTags: isNvidia,
 	};
 }
 
@@ -784,5 +834,6 @@ function getCompat(model: Model<"openai-completions">): Required<OpenAICompat> {
 		requiresThinkingAsText: model.compat.requiresThinkingAsText ?? detected.requiresThinkingAsText,
 		requiresMistralToolIds: model.compat.requiresMistralToolIds ?? detected.requiresMistralToolIds,
 		thinkingFormat: model.compat.thinkingFormat ?? detected.thinkingFormat,
+		parseThinkTags: model.compat.parseThinkTags ?? detected.parseThinkTags,
 	};
 }

@@ -229,6 +229,8 @@ export interface OpenAICompat {
 	requiresMistralToolIds?: boolean;
 	/** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "zai" uses thinking: { type: "enabled" }. Default: "openai". */
 	thinkingFormat?: "openai" | "zai";
+	/** Whether to parse <think> tags from the response. Default: auto-detected from URL. */
+	parseThinkTags?: boolean;
 }
 
 // Model interface for the unified model system
