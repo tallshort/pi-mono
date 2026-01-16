@@ -592,44 +592,78 @@ export class InteractiveMode {
 	 * Initialize the extension system with TUI-based UI context.
 	 */
 	private async initExtensions(): Promise<void> {
-		// Show discovery info unless silenced
-		if (!this.settingsManager.getQuietStartup()) {
-			// Show loaded project context files
-			const contextFiles = loadProjectContextFiles();
-			if (contextFiles.length > 0) {
-				const contextList = contextFiles.map((f) => theme.fg("dim", `  ${f.path}`)).join("\n");
-				this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded context:\n") + contextList, 0, 0));
-				this.chatContainer.addChild(new Spacer(1));
-			}
+		const verbose = this.settingsManager.getShowVerboseStartup();
+		const quiet = this.settingsManager.getQuietStartup();
+		const contextFiles = loadProjectContextFiles();
+		const skills = this.session.skills;
+		const skillWarnings = this.session.skillWarnings;
+		const templates = this.session.promptTemplates;
+		const extensionRunner = this.session.extensionRunner;
+		const extensionPaths = extensionRunner ? extensionRunner.getExtensionPaths() : [];
 
-			// Show loaded skills (already discovered by SDK)
-			const skills = this.session.skills;
-			if (skills.length > 0) {
-				const skillList = skills.map((s) => theme.fg("dim", `  ${s.filePath}`)).join("\n");
-				this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded skills:\n") + skillList, 0, 0));
-				this.chatContainer.addChild(new Spacer(1));
-			}
+		if (!quiet) {
+			if (verbose) {
+				// Show loaded project context files
+				if (contextFiles.length > 0) {
+					const contextList = contextFiles.map((f) => theme.fg("dim", `  ${f.path}`)).join("\n");
+					this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded context:\n") + contextList, 1, 0));
+					this.chatContainer.addChild(new Spacer(1));
+				}
 
-			// Show skill warnings if any
-			const skillWarnings = this.session.skillWarnings;
-			if (skillWarnings.length > 0) {
-				const warningList = skillWarnings
-					.map((w) => theme.fg("warning", `  ${w.skillPath}: ${w.message}`))
-					.join("\n");
-				this.chatContainer.addChild(new Text(theme.fg("warning", "Skill warnings:\n") + warningList, 0, 0));
-				this.chatContainer.addChild(new Spacer(1));
-			}
+				// Show loaded skills (already discovered by SDK)
+				if (skills.length > 0) {
+					const skillList = skills.map((s) => theme.fg("dim", `  ${s.filePath}`)).join("\n");
+					this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded skills:\n") + skillList, 1, 0));
+					this.chatContainer.addChild(new Spacer(1));
+				}
 
-			// Show loaded prompt templates
-			const templates = this.session.promptTemplates;
-			if (templates.length > 0) {
-				const templateList = templates.map((t) => theme.fg("dim", `  /${t.name} ${t.source}`)).join("\n");
-				this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded prompt templates:\n") + templateList, 0, 0));
-				this.chatContainer.addChild(new Spacer(1));
+				// Show loaded prompt templates
+				if (templates.length > 0) {
+					const templateList = templates.map((t) => theme.fg("dim", `  /${t.name} ${t.source}`)).join("\n");
+					this.chatContainer.addChild(
+						new Text(theme.fg("muted", "Loaded prompt templates:\n") + templateList, 1, 0),
+					);
+					this.chatContainer.addChild(new Spacer(1));
+				}
+
+				// Show loaded extensions
+				if (extensionPaths.length > 0) {
+					const extList = extensionPaths.map((p) => theme.fg("dim", `  ${p}`)).join("\n");
+					this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded extensions:\n") + extList, 1, 0));
+					this.chatContainer.addChild(new Spacer(1));
+				}
+			} else {
+				// Compact summary
+				const parts: string[] = [];
+				if (contextFiles.length > 0) {
+					parts.push(`${contextFiles.length} context file${contextFiles.length === 1 ? "" : "s"}`);
+				}
+				if (skills.length > 0) {
+					parts.push(`${skills.length} skill${skills.length === 1 ? "" : "s"}`);
+				}
+				if (templates.length > 0) {
+					parts.push(`${templates.length} prompt template${templates.length === 1 ? "" : "s"}`);
+				}
+				if (extensionPaths.length > 0) {
+					parts.push(`${extensionPaths.length} extension${extensionPaths.length === 1 ? "" : "s"}`);
+				}
+
+				if (parts.length > 0) {
+					this.chatContainer.addChild(new Text(theme.fg("muted", parts.join(" | ")), 1, 0));
+					this.chatContainer.addChild(new Spacer(1));
+				}
 			}
 		}
 
-		const extensionRunner = this.session.extensionRunner;
+		// Show skill warnings if any (always show unless quiet)
+		if (!quiet && skillWarnings.length > 0) {
+			const warningList = skillWarnings
+				.map((w) => theme.fg("warning", `  ${w.skillPath}: ${w.message}`))
+				.join("\n");
+			this.chatContainer.addChild(new Text(theme.fg("warning", "Skill warnings:\n") + warningList, 1, 0));
+			this.chatContainer.addChild(new Spacer(1));
+		}
+
 		if (!extensionRunner) {
 			return; // No extensions loaded
 		}
@@ -771,16 +805,6 @@ export class InteractiveMode {
 
 		// Set up extension-registered shortcuts
 		this.setupExtensionShortcuts(extensionRunner);
-
-		// Show loaded extensions (unless silenced)
-		if (!this.settingsManager.getQuietStartup()) {
-			const extensionPaths = extensionRunner.getExtensionPaths();
-			if (extensionPaths.length > 0) {
-				const extList = extensionPaths.map((p) => theme.fg("dim", `  ${p}`)).join("\n");
-				this.chatContainer.addChild(new Text(theme.fg("muted", "Loaded extensions:\n") + extList, 0, 0));
-				this.chatContainer.addChild(new Spacer(1));
-			}
-		}
 
 		// Emit session_start event
 		await extensionRunner.emit({
@@ -2528,6 +2552,7 @@ export class InteractiveMode {
 					doubleEscapeAction: this.settingsManager.getDoubleEscapeAction(),
 					editorPaddingX: this.settingsManager.getEditorPaddingX(),
 					showStartupShortcuts: this.settingsManager.getShowStartupShortcuts(),
+					showVerboseStartup: this.settingsManager.getShowVerboseStartup(),
 				},
 				{
 					onAutoCompactChange: (enabled) => {
@@ -2601,6 +2626,9 @@ export class InteractiveMode {
 					},
 					onShowStartupShortcutsChange: (show) => {
 						this.settingsManager.setShowStartupShortcuts(show);
+					},
+					onShowVerboseStartupChange: (verbose) => {
+						this.settingsManager.setShowVerboseStartup(verbose);
 					},
 					onCancel: () => {
 						done();

@@ -120,6 +120,22 @@ describe("SettingsManager", () => {
 			const savedSettings = JSON.parse(readFileSync(settingsPath, "utf-8"));
 			expect(savedSettings.showStartupShortcuts).toBe(false);
 		});
+
+		it("should manage showVerboseStartup setting", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+
+			// Default should be true
+			expect(manager.getShowVerboseStartup()).toBe(true);
+
+			// Change to false
+			manager.setShowVerboseStartup(false);
+			expect(manager.getShowVerboseStartup()).toBe(false);
+
+			// Check file persistence
+			const settingsPath = join(agentDir, "settings.json");
+			const savedSettings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+			expect(savedSettings.showVerboseStartup).toBe(false);
+		});
 	});
 
 	describe("shellCommandPrefix", () => {

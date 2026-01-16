@@ -72,6 +72,7 @@ export interface Settings {
 	thinkingBudgets?: ThinkingBudgetsSettings; // Custom token budgets for thinking levels
 	editorPaddingX?: number; // Horizontal padding for input editor (default: 0)
 	showStartupShortcuts?: boolean; // Show keyboard shortcuts on startup (default: true)
+	showVerboseStartup?: boolean; // Show detailed startup info (default: true)
 }
 
 /** Deep merge settings: project/overrides take precedence, nested objects merge recursively */
@@ -498,6 +499,15 @@ export class SettingsManager {
 
 	setShowStartupShortcuts(show: boolean): void {
 		this.globalSettings.showStartupShortcuts = show;
+		this.save();
+	}
+
+	getShowVerboseStartup(): boolean {
+		return this.settings.showVerboseStartup ?? true;
+	}
+
+	setShowVerboseStartup(verbose: boolean): void {
+		this.globalSettings.showVerboseStartup = verbose;
 		this.save();
 	}
 }

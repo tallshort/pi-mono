@@ -38,6 +38,7 @@ export interface SettingsConfig {
 	doubleEscapeAction: "fork" | "tree";
 	editorPaddingX: number;
 	showStartupShortcuts: boolean;
+	showVerboseStartup: boolean;
 }
 
 export interface SettingsCallbacks {
@@ -56,6 +57,7 @@ export interface SettingsCallbacks {
 	onDoubleEscapeActionChange: (action: "fork" | "tree") => void;
 	onEditorPaddingXChange: (padding: number) => void;
 	onShowStartupShortcutsChange: (show: boolean) => void;
+	onShowVerboseStartupChange: (verbose: boolean) => void;
 	onCancel: () => void;
 }
 
@@ -175,6 +177,13 @@ export class SettingsSelectorComponent extends Container {
 				label: "Show startup shortcuts",
 				description: "Show keyboard shortcuts on startup",
 				currentValue: config.showStartupShortcuts ? "true" : "false",
+				values: ["true", "false"],
+			},
+			{
+				id: "show-verbose-startup",
+				label: "Show verbose startup",
+				description: "Show detailed information about loaded context, skills, etc. on startup",
+				currentValue: config.showVerboseStartup ? "true" : "false",
 				values: ["true", "false"],
 			},
 			{
@@ -326,6 +335,9 @@ export class SettingsSelectorComponent extends Container {
 						break;
 					case "show-startup-shortcuts":
 						callbacks.onShowStartupShortcutsChange(newValue === "true");
+						break;
+					case "show-verbose-startup":
+						callbacks.onShowVerboseStartupChange(newValue === "true");
 						break;
 					case "double-escape-action":
 						callbacks.onDoubleEscapeActionChange(newValue as "fork" | "tree");
