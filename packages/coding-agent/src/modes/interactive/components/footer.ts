@@ -149,7 +149,8 @@ export class FooterComponent implements Component {
 
 		// Add model name on the right side, plus thinking level if model supports it
 		const modelId = state.model?.id || "no-model";
-		const modelName = modelId;
+		const provider = state.model?.provider;
+		const modelName = provider ? `${modelId} [${provider}]` : modelId;
 
 		// Add thinking level hint if model supports reasoning and thinking is enabled
 		let rightSide = modelName;
