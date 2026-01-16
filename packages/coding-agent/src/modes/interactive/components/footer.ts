@@ -96,6 +96,9 @@ export class FooterComponent implements Component {
 		const contextPercentValue = contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0;
 		const contextPercent = contextPercentValue.toFixed(1);
 
+		// Use effective width (width - 1) for internal calculations to account for indentation
+		const effectiveWidth = Math.max(0, width - 1);
+
 		// Replace home directory with ~
 		let pwd = process.cwd();
 		const home = process.env.HOME || process.env.USERPROFILE;
@@ -103,21 +106,15 @@ export class FooterComponent implements Component {
 			pwd = `~${pwd.slice(home.length)}`;
 		}
 
-		// Add git branch if available
-		const branch = this.footerData.getGitBranch();
-		if (branch) {
-			pwd = `${pwd} (${branch})`;
-		}
-
 		// Truncate path if too long to fit width
-		if (pwd.length > width) {
-			const half = Math.floor(width / 2) - 2;
+		if (pwd.length > effectiveWidth) {
+			const half = Math.floor(effectiveWidth / 2) - 2;
 			if (half > 0) {
 				const start = pwd.slice(0, half);
 				const end = pwd.slice(-(half - 1));
 				pwd = `${start}...${end}`;
 			} else {
-				pwd = pwd.slice(0, Math.max(1, width));
+				pwd = pwd.slice(0, Math.max(1, effectiveWidth));
 			}
 		}
 
@@ -151,7 +148,8 @@ export class FooterComponent implements Component {
 		let statsLeft = statsParts.join(" ");
 
 		// Add model name on the right side, plus thinking level if model supports it
-		const modelName = state.model?.id || "no-model";
+		const modelId = state.model?.id || "no-model";
+		const modelName = modelId;
 
 		// Add thinking level hint if model supports reasoning and thinking is enabled
 		let rightSide = modelName;
@@ -166,10 +164,10 @@ export class FooterComponent implements Component {
 		const rightSideWidth = visibleWidth(rightSide);
 
 		// If statsLeft is too wide, truncate it
-		if (statsLeftWidth > width) {
+		if (statsLeftWidth > effectiveWidth) {
 			// Truncate statsLeft to fit width (no room for right side)
 			const plainStatsLeft = statsLeft.replace(/\x1b\[[0-9;]*m/g, "");
-			statsLeft = `${plainStatsLeft.substring(0, width - 3)}...`;
+			statsLeft = `${plainStatsLeft.substring(0, effectiveWidth - 3)}...`;
 			statsLeftWidth = visibleWidth(statsLeft);
 		}
 
@@ -178,19 +176,19 @@ export class FooterComponent implements Component {
 		const totalNeeded = statsLeftWidth + minPadding + rightSideWidth;
 
 		let statsLine: string;
-		if (totalNeeded <= width) {
+		if (totalNeeded <= effectiveWidth) {
 			// Both fit - add padding to right-align model
-			const padding = " ".repeat(width - statsLeftWidth - rightSideWidth);
+			const padding = " ".repeat(effectiveWidth - statsLeftWidth - rightSideWidth);
 			statsLine = statsLeft + padding + rightSide;
 		} else {
 			// Need to truncate right side
-			const availableForRight = width - statsLeftWidth - minPadding;
+			const availableForRight = effectiveWidth - statsLeftWidth - minPadding;
 			if (availableForRight > 3) {
 				// Truncate to fit (strip ANSI codes for length calculation, then truncate raw string)
 				const plainRightSide = rightSide.replace(/\x1b\[[0-9;]*m/g, "");
 				const truncatedPlain = plainRightSide.substring(0, availableForRight);
 				// For simplicity, just use plain truncated version (loses color, but fits)
-				const padding = " ".repeat(width - statsLeftWidth - truncatedPlain.length);
+				const padding = " ".repeat(effectiveWidth - statsLeftWidth - truncatedPlain.length);
 				statsLine = statsLeft + padding + truncatedPlain;
 			} else {
 				// Not enough space for right side at all
@@ -205,7 +203,15 @@ export class FooterComponent implements Component {
 		const remainder = statsLine.slice(statsLeft.length); // padding + rightSide
 		const dimRemainder = theme.fg("dim", remainder);
 
-		const lines = [theme.fg("dim", pwd), dimStatsLeft + dimRemainder];
+		// Get git branch if available
+		const branch = this.footerData.getGitBranch();
+		// Render pwd with accent, branch with dim
+		const pwdLine = theme.fg("accent", pwd) + (branch ? theme.fg("dim", ` (${branch})`) : "");
+		// Indent content by 1 space to align with editor border. Truncate to width to avoid TUI crash.
+		const lines = [
+			truncateToWidth(` ${pwdLine}`, width, ""),
+			truncateToWidth(` ${dimStatsLeft}${dimRemainder}`, width, ""),
+		];
 
 		// Add extension statuses on a single line, sorted by key alphabetically
 		const extensionStatuses = this.footerData.getExtensionStatuses();
@@ -215,9 +221,8 @@ export class FooterComponent implements Component {
 				.map(([, text]) => sanitizeStatusText(text));
 			const statusLine = sortedStatuses.join(" ");
 			// Truncate to terminal width with dim ellipsis for consistency with footer style
-			lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
+			lines.push(truncateToWidth(` ${statusLine}`, width, theme.fg("dim", "...")));
 		}
-
 		return lines;
 	}
 }
