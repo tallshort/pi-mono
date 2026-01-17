@@ -298,7 +298,7 @@ export class SettingsSelectorComponent extends Container {
 		});
 
 		// Add borders
-		this.addChild(new DynamicBorder());
+		this.addChild(new DynamicBorder(undefined, "top"));
 
 		this.settingsList = new SettingsList(
 			items,
@@ -352,7 +352,7 @@ export class SettingsSelectorComponent extends Container {
 		);
 
 		this.addChild(this.settingsList);
-		this.addChild(new DynamicBorder());
+		this.addChild(new DynamicBorder(undefined, "bottom"));
 	}
 
 	getSettingsList(): SettingsList {
