@@ -1018,6 +1018,7 @@ export class InteractiveMode {
 			custom: (factory, options) => this.showExtensionCustom(factory, options),
 			setEditorText: (text) => this.editor.setText(text),
 			getEditorText: () => this.editor.getText(),
+			clearScreen: () => this.handleClearScreen(),
 			editor: (title, prefill) => this.showExtensionEditor(title, prefill),
 			setEditorComponent: (factory) => this.setCustomEditorComponent(factory),
 			get theme() {
@@ -3520,6 +3521,11 @@ export class InteractiveMode {
 		this.chatContainer.addChild(new Markdown(hotkeys.trim(), 1, 1, getMarkdownTheme()));
 		this.chatContainer.addChild(new DynamicBorder());
 		this.ui.requestRender();
+	}
+
+	private handleClearScreen(): void {
+		this.chatContainer.clear();
+		this.ui.requestRender(true);
 	}
 
 	private async handleClearCommand(): Promise<void> {

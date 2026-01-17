@@ -136,6 +136,9 @@ export interface ExtensionUIContext {
 	/** Get the current text from the core input editor. */
 	getEditorText(): string;
 
+	/** Clear the screen. */
+	clearScreen(): void;
+
 	/** Show a multi-line editor for text editing. */
 	editor(title: string, prefill?: string): Promise<string | undefined>;
 

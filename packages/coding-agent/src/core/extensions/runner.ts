@@ -90,6 +90,7 @@ const noOpUIContext: ExtensionUIContext = {
 	custom: async () => undefined as never,
 	setEditorText: () => {},
 	getEditorText: () => "",
+	clearScreen: () => {},
 	editor: async () => undefined,
 	setEditorComponent: () => {},
 	get theme() {
@@ -223,7 +224,6 @@ export class ExtensionRunner {
 		"ctrl+z",
 		"ctrl+k",
 		"ctrl+p",
-		"ctrl+l",
 		"ctrl+o",
 		"ctrl+t",
 		"ctrl+g",
