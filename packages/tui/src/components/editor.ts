@@ -237,6 +237,21 @@ interface LayoutLine {
 	cursorPos?: number;
 }
 
+export type EditorBorderStyle = "rounded" | "sharp" | "none";
+
+interface BorderChars {
+	topLeft: string;
+	topRight: string;
+	bottomLeft: string;
+	bottomRight: string;
+}
+
+const BORDER_STYLES: Record<EditorBorderStyle, BorderChars> = {
+	rounded: { topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯" },
+	sharp: { topLeft: "┌", topRight: "┐", bottomLeft: "└", bottomRight: "┘" },
+	none: { topLeft: "", topRight: "", bottomLeft: "", bottomRight: "" },
+};
+
 export interface EditorTheme {
 	borderColor: (str: string) => string;
 	selectList: SelectListTheme;
@@ -244,6 +259,7 @@ export interface EditorTheme {
 
 export interface EditorOptions {
 	paddingX?: number;
+	borderStyle?: EditorBorderStyle;
 }
 
 export class Editor implements Component, Focusable {
@@ -259,6 +275,7 @@ export class Editor implements Component, Focusable {
 	protected tui: TUI;
 	private theme: EditorTheme;
 	private paddingX: number = 0;
+	private borderStyle: EditorBorderStyle = "rounded";
 
 	// Store last render width for cursor navigation
 	private lastWidth: number = 80;
@@ -298,6 +315,9 @@ export class Editor implements Component, Focusable {
 		this.borderColor = theme.borderColor;
 		const paddingX = options.paddingX ?? 0;
 		this.paddingX = Number.isFinite(paddingX) ? Math.max(0, Math.floor(paddingX)) : 0;
+		if (options.borderStyle) {
+			this.borderStyle = options.borderStyle;
+		}
 	}
 
 	getPaddingX(): number {
@@ -308,6 +328,13 @@ export class Editor implements Component, Focusable {
 		const newPadding = Number.isFinite(padding) ? Math.max(0, Math.floor(padding)) : 0;
 		if (this.paddingX !== newPadding) {
 			this.paddingX = newPadding;
+			this.tui.requestRender();
+		}
+	}
+
+	setBorderStyle(style: EditorBorderStyle): void {
+		if (this.borderStyle !== style) {
+			this.borderStyle = style;
 			this.tui.requestRender();
 		}
 	}
@@ -382,6 +409,22 @@ export class Editor implements Component, Focusable {
 		// No cached state to invalidate currently
 	}
 
+	private formatBorder(text: string, position: "top" | "bottom"): string {
+		if (text.length <= 1) return text;
+
+		const style = BORDER_STYLES[this.borderStyle];
+		const leftChar = position === "top" ? style.topLeft : style.bottomLeft;
+		const rightChar = position === "top" ? style.topRight : style.bottomRight;
+
+		// If no corner characters are defined for this style, return original text (horizontal lines)
+		if (!leftChar && !rightChar) {
+			return text;
+		}
+
+		// Replace the first and last characters with the corner characters
+		return `${leftChar}${text.slice(1, -1)}${rightChar}`;
+	}
+
 	render(width: number): string[] {
 		const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
 		const paddingX = Math.min(this.paddingX, maxPadding);
@@ -389,8 +432,6 @@ export class Editor implements Component, Focusable {
 
 		// Store width for cursor navigation
 		this.lastWidth = contentWidth;
-
-		const horizontal = this.borderColor("─");
 
 		// Layout the text - use content width
 		const layoutLines = this.layoutText(contentWidth);
@@ -422,13 +463,19 @@ export class Editor implements Component, Focusable {
 		const rightPadding = leftPadding;
 
 		// Render top border (with scroll indicator if scrolled down)
+		let topBorder: string;
 		if (this.scrollOffset > 0) {
 			const indicator = `─── ↑ ${this.scrollOffset} more `;
 			const remaining = width - visibleWidth(indicator);
-			result.push(this.borderColor(indicator + "─".repeat(Math.max(0, remaining))));
+			topBorder = indicator + "─".repeat(Math.max(0, remaining));
 		} else {
-			result.push(horizontal.repeat(width));
+			topBorder = "─".repeat(width);
 		}
+
+		if (width > 1) {
+			topBorder = this.formatBorder(topBorder, "top");
+		}
+		result.push(this.borderColor(topBorder));
 
 		// Render each visible layout line
 		// Emit hardware cursor marker only when focused and not showing autocomplete
@@ -491,13 +538,19 @@ export class Editor implements Component, Focusable {
 
 		// Render bottom border (with scroll indicator if more content below)
 		const linesBelow = layoutLines.length - (this.scrollOffset + visibleLines.length);
+		let bottomBorder: string;
 		if (linesBelow > 0) {
 			const indicator = `─── ↓ ${linesBelow} more `;
 			const remaining = width - visibleWidth(indicator);
-			result.push(this.borderColor(indicator + "─".repeat(Math.max(0, remaining))));
+			bottomBorder = indicator + "─".repeat(Math.max(0, remaining));
 		} else {
-			result.push(horizontal.repeat(width));
+			bottomBorder = "─".repeat(width);
 		}
+
+		if (width > 1) {
+			bottomBorder = this.formatBorder(bottomBorder, "bottom");
+		}
+		result.push(this.borderColor(bottomBorder));
 
 		// Add autocomplete list if active
 		if (this.isAutocompleting && this.autocompleteList) {
