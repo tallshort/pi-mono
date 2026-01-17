@@ -43,7 +43,7 @@ export class BashExecutionComponent extends Container {
 		this.addChild(new Spacer(1));
 
 		// Top border
-		this.addChild(new DynamicBorder(borderColor));
+		this.addChild(new DynamicBorder(borderColor, "top"));
 
 		// Content container (holds dynamic content between borders)
 		this.contentContainer = new Container();
@@ -63,7 +63,7 @@ export class BashExecutionComponent extends Container {
 		this.contentContainer.addChild(this.loader);
 
 		// Bottom border
-		this.addChild(new DynamicBorder(borderColor));
+		this.addChild(new DynamicBorder(borderColor, "bottom"));
 	}
 
 	/**
